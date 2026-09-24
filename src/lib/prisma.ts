@@ -1,33 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import fs from "fs";
-import path from "path";
 
-// Vercel Serverless environment: /tmp is the only writable folder
-function getDatabaseUrl(): string {
-  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
-    return process.env.DATABASE_URL;
-  }
+const defaultDbUrl =
+  process.env.DATABASE_URL ||
+  "postgresql://postgres.avuxzazbodiuwhdsjdhm:Furkan159.%21@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true";
 
-  if (process.env.VERCEL) {
-    const tmpDbPath = "/tmp/dev.db";
-    try {
-      const sourceDbPath = path.join(process.cwd(), "prisma", "dev.db");
-      if (!fs.existsSync(tmpDbPath)) {
-        if (fs.existsSync(sourceDbPath)) {
-          fs.copyFileSync(sourceDbPath, tmpDbPath);
-        }
-      }
-    } catch (err) {
-      console.error("[Prisma Setup Error]:", err);
-    }
-    return `file:${tmpDbPath}`;
-  }
-
-  return process.env.DATABASE_URL || `file:${path.join(process.cwd(), "prisma", "dev.db")}`;
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = defaultDbUrl;
 }
-
-const dbUrl = getDatabaseUrl();
-process.env.DATABASE_URL = dbUrl;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -36,7 +15,6 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    datasourceUrl: dbUrl,
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
