@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { comparePassword, setSessionCookie } from "@/lib/auth";
+import { comparePassword, hashPassword, setSessionCookie } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +13,27 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanPassword = password.trim();
+
+    // Check if any Super Admin exists; if not, automatically initialize default Super Admin
+    const userCount = await prisma.user.count().catch(() => 0);
+    if (userCount === 0 && (cleanEmail === "admin@novatra.com" || cleanEmail === "admin@bilgiislem.com")) {
+      const defaultPassword = await hashPassword("admin123");
+      await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          password: defaultPassword,
+          name: "Furkan (Bilgi İşlem Yöneticisi)",
+          phone: "0555 123 45 67",
+          role: "SUPER_ADMIN",
+          department: "Bilgi Teknolojileri",
+        },
+      });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: cleanEmail },
       include: {
         company: true,
       },
@@ -41,7 +60,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const isMatch = await comparePassword(password, user.password);
+    const isMatch = await comparePassword(cleanPassword, user.password);
     if (!isMatch) {
       return NextResponse.json(
         { error: "Geçersiz e-posta veya şifre." },
@@ -66,10 +85,11 @@ export async function POST(request: Request) {
       success: true,
       user: sessionPayload,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Login Error]:", error);
+    const errMessage = error instanceof Error ? error.message : "Veritabanı bağlantı hatası.";
     return NextResponse.json(
-      { error: "Giriş yapılırken bir hata oluştu." },
+      { error: `Giriş hatası: ${errMessage}` },
       { status: 500 }
     );
   }
