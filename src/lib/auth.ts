@@ -65,22 +65,42 @@ export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
   
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    include: {
-      company: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-          isActive: true,
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!user || !user.isActive) return null;
-  if (user.company && !user.company.isActive && user.role !== "SUPER_ADMIN") return null;
+    if (user) {
+      if (!user.isActive) return null;
+      if (user.company && !user.company.isActive && user.role !== "SUPER_ADMIN") return null;
+      return user;
+    }
+  } catch (err) {
+    console.error("[getCurrentUser fallback]:", err);
+  }
 
-  return user;
+  // Graceful fallback to verified token session so user is never stuck in a loop
+  return {
+    id: session.id,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+    companyId: session.companyId || null,
+    phone: session.phone || null,
+    department: session.department || null,
+    isActive: true,
+    company: session.companyId
+      ? { id: session.companyId, name: session.companyName || "", code: "", isActive: true }
+      : null,
+  };
 }

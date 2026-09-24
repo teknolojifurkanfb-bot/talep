@@ -37,8 +37,7 @@ export default function LoginPage() {
         throw new Error(data.error || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.");
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      window.location.href = "/dashboard";
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Giriş sırasında hata oluştu.");
       setLoading(false);
