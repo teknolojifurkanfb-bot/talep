@@ -7,12 +7,9 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  ShieldCheck,
-  Building2,
-  User,
-  Monitor,
   CheckCircle,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -22,25 +19,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
-    if (e) e.preventDefault();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     setLoading(true);
-
-    const targetEmail = customEmail || email;
-    const targetPass = customPass || password;
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail, password: targetPass }),
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Giriş başarısız.");
+        throw new Error(data.error || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.");
       }
 
       router.push("/dashboard");
@@ -49,12 +43,6 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : "Giriş sırasında hata oluştu.");
       setLoading(false);
     }
-  };
-
-  const fillAndLogin = (eMail: string, pWord: string) => {
-    setEmail(eMail);
-    setPassword(pWord);
-    handleLogin(undefined, eMail, pWord);
   };
 
   return (
@@ -69,48 +57,50 @@ export default function LoginPage() {
               <Headphones className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs font-semibold tracking-wider uppercase px-3 py-1 bg-white/10 rounded-full border border-white/15">
-              Home-Office IT Desk
+              Novatra Destek Portalı
             </span>
             <h2 className="text-2xl font-bold mt-4 leading-tight">
-              Bilgi İşlem & Destek Talep Portalı
+              Bilgi İşlem & Talep Yönetim Sistemi
             </h2>
             <p className="text-sm text-blue-100 mt-2 leading-relaxed">
-              Müşteri firmalarınız için çoklu kurum destek yönetimi, uzaktan bağlantı, medya yükleme ve anlık bildirimler.
+              Müşteri kurumlar ve şirket personelleri için merkezi teknik destek masası ve uzaktan müdahale platformu.
             </p>
 
             <div className="mt-8 space-y-3">
               <div className="flex items-start gap-2.5 text-xs text-blue-100">
                 <CheckCircle size={15} className="text-emerald-300 shrink-0 mt-0.5" />
-                <span><strong>Multi-Tenant:</strong> Her kurum kendi personelini yönetir.</span>
+                <span><strong>Multi-Tenant:</strong> Kurum yöneticileri personellerini yönetebilir.</span>
               </div>
               <div className="flex items-start gap-2.5 text-xs text-blue-100">
                 <CheckCircle size={15} className="text-emerald-300 shrink-0 mt-0.5" />
-                <span><strong>AnyDesk / RustDesk:</strong> Tek tıkla hızlı bağlantı.</span>
+                <span><strong>Uzaktan Bağlantı:</strong> AnyDesk / RustDesk ile anında müdahale.</span>
               </div>
               <div className="flex items-start gap-2.5 text-xs text-blue-100">
                 <CheckCircle size={15} className="text-emerald-300 shrink-0 mt-0.5" />
-                <span><strong>Görsel & Video:</strong> Ekran kayıtları ve fotoğraf yükleme.</span>
+                <span><strong>Medya Yükleme:</strong> Fotoğraf, video kaydı ve hata logları.</span>
               </div>
             </div>
           </div>
 
           <div className="relative z-10 mt-8 pt-6 border-t border-white/10 text-[11px] text-blue-200 flex items-center justify-between">
-            <span>Home-Office IT Specialist</span>
-            <span>v1.0 Ready</span>
+            <span className="flex items-center gap-1">
+              <ShieldCheck size={13} /> Güvenli SSL Bağlantısı
+            </span>
+            <span>v1.0 Canlı Sistem</span>
           </div>
         </div>
 
-        {/* Right Side: Login Form & Quick Test Switcher */}
-        <div className="lg:col-span-7 p-8 md:p-10 flex flex-col justify-center bg-white">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Giriş Yap</h3>
+        {/* Right Side: Professional Production Login Form */}
+        <div className="lg:col-span-7 p-8 md:p-12 flex flex-col justify-center bg-white">
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Kullanıcı Girişi</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Hesabınıza erişmek için bilgilerinizi girin.
+              Sisteme erişmek için e-posta ve şifrenizi girin.
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium rounded-xl">
+            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl">
               {error}
             </div>
           )}
@@ -128,7 +118,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ornek@sirket.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -145,7 +135,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -153,7 +143,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-70"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.99] text-white font-semibold rounded-2xl text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-70 mt-2"
             >
               {loading ? (
                 <>
@@ -162,85 +152,15 @@ export default function LoginPage() {
                 </>
               ) : (
                 <>
-                  <span>Panele Giriş Yap</span>
+                  <span>Giriş Yap</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Quick Demo Accounts for Testing */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-700 mb-2.5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Hızlı Test İçin Tek Tıkla Giriş Yap:
-            </p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => fillAndLogin("admin@bilgiislem.com", "admin123")}
-                className="flex items-center gap-2.5 p-2.5 text-left bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl transition-all group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                  <ShieldCheck size={14} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-blue-700 truncate">
-                    Bilgi İşlem (Siz)
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate">Süper Admin</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillAndLogin("ahmet@atlaslojistik.com", "yonetici123")}
-                className="flex items-center gap-2.5 p-2.5 text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl transition-all group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                  <Building2 size={14} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700 truncate">
-                    Atlas Lojistik Admin
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate">Kurum Yöneticisi</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillAndLogin("mehmet@atlaslojistik.com", "user123")}
-                className="flex items-center gap-2.5 p-2.5 text-left bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl transition-all group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <User size={14} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-emerald-700 truncate">
-                    Mehmet (Muhasebe)
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate">Son Kullanıcı</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillAndLogin("can@novamimarlik.com", "user123")}
-                className="flex items-center gap-2.5 p-2.5 text-left bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 rounded-xl transition-all group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
-                  <Monitor size={14} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-purple-700 truncate">
-                    Can (Nova Mimarlık)
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate">Son Kullanıcı</p>
-                </div>
-              </button>
-            </div>
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+            Hesabınız yoksa lütfen kurum yöneticinizle veya Bilgi İşlem ile iletişime geçin.
           </div>
         </div>
       </div>
