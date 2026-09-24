@@ -10,15 +10,16 @@ interface SendMailOptions {
 
 export async function sendEmail({ to, subject, html, text }: SendMailOptions) {
   try {
-    const settings = await prisma.systemSettings.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const settings = (await prisma.systemSettings.findUnique({
       where: { id: "default" },
-    });
+    }).catch(() => null)) as any;
 
     const host = process.env.SMTP_HOST || settings?.smtpHost || "";
     const port = parseInt(process.env.SMTP_PORT || String(settings?.smtpPort || 587));
     const user = process.env.SMTP_USER || settings?.smtpUser || "";
     const pass = process.env.SMTP_PASS || settings?.smtpPassword || "";
-    const from = process.env.SMTP_FROM || settings?.smtpFrom || '"Bilgi İşlem Destek Portalı" <destek@bilgiislem.com>';
+    const from = process.env.SMTP_FROM || settings?.smtpFrom || '"Novatra Destek Portalı" <destek@novatra.com>';
 
     if (!host || !user) {
       console.log(`[E-Posta Simülasyonu - SMTP Yapılandırılmamış]`);
@@ -96,7 +97,7 @@ export function generateTicketCreatedEmail({
         <p style="color: #64748b; font-size: 13px;">Talebi incelemek ve yanıtlamak için portala giriş yapabilirsiniz.</p>
       </div>
       <div style="text-align: center; border-top: 1px solid #f1f5f9; padding-top: 15px; color: #94a3b8; font-size: 12px;">
-        Bilgi İşlem Destek Portalı &copy; ${new Date().getFullYear()}
+        Novatra Destek Portalı &copy; ${new Date().getFullYear()}
       </div>
     </div>
   `;
@@ -131,7 +132,7 @@ export function generateTicketStatusUpdatedEmail({
         <p style="color: #64748b; font-size: 13px;">Gelişmeleri ve varsa eklenen yanıtları portal üzerinden takip edebilirsiniz.</p>
       </div>
       <div style="text-align: center; border-top: 1px solid #f1f5f9; padding-top: 15px; color: #94a3b8; font-size: 12px;">
-        Bilgi İşlem Destek Portalı &copy; ${new Date().getFullYear()}
+        Novatra Destek Portalı &copy; ${new Date().getFullYear()}
       </div>
     </div>
   `;
