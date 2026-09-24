@@ -1,0 +1,148 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Company {
+  id           String   @id @default(uuid())
+  name         String
+  code         String   @unique
+  contactEmail String?
+  contactPhone String?
+  address      String?
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  tickets      Ticket[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  phone        String?
+  role         String   @default("USER") // SUPER_ADMIN, COMPANY_ADMIN, USER
+  department   String?
+  isActive     Boolean  @default(true)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  ticketsCreated Ticket[]  @relation("CreatedByUser")
+  assignedTickets Ticket[] @relation("AssignedToUser")
+  comments       Comment[]
+  notifications  Notification[]
+}
+
+model Ticket {
+  id             String       @id @default(uuid())
+  ticketNumber   String       @unique
+  title          String
+  description    String
+  category       String       @default("YAZILIM") // DONANIM, YAZILIM, AG_INTERNET, EPOSTA, YAZICI, GUVENLIK, DIGER
+  priority       String       @default("NORMAL") // DUSUK, NORMAL, YUKSEK, ACIL
+  status         String       @default("ACIK") // ACIK, ISLEMDE, BEKLEMEDE, COZULDU, KAPATILDI
+  
+  // İletişim & Uzaktan Bağlantı Bilgileri
+  contactPhone   String?
+  remoteApp      String?      // AnyDesk, TeamViewer, RustDesk, Diğer
+  remoteId       String?
+  remotePassword String?
+  deviceInfo     String?
+  
+  // İlişkiler
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  userId         String
+  user           User         @relation("CreatedByUser", fields: [userId], references: [id], onDelete: Cascade)
+  
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedToUser", fields: [assignedToId], references: [id])
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  resolvedAt     DateTime?
+
+  attachments    Attachment[]
+  comments       Comment[]
+  history        TicketHistory[]
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  fileName    String
+  fileUrl     String
+  fileType    String   // "image", "video", "document", "other"
+  mimeType    String?
+  fileSize    Int
+  
+  ticketId    String?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  commentId   String?
+  comment     Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  uploadedAt  DateTime @default(now())
+}
+
+model Comment {
+  id          String       @id @default(uuid())
+  content     String
+  isInternal  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  ticketId    String
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  attachments Attachment[]
+}
+
+model TicketHistory {
+  id          String   @id @default(uuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorName   String
+  action      String
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SystemSettings {
+  id                String  @id @default("default")
+  systemName        String  @default("Bilgi İşlem Destek Portalı")
+  smtpHost          String?
+  smtpPort          Int?    @default(587)
+  smtpUser          String?
+  smtpPassword      String?
+  smtpFrom          String?
+  supportPhone      String?
+  notificationEmail String?
+}
