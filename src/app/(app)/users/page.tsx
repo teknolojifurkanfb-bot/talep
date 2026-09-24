@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Users,
   PlusCircle,
@@ -17,6 +18,7 @@ import {
   Loader2,
   X,
   KeyRound,
+  ExternalLink,
 } from "lucide-react";
 
 export default function UsersManagementPage() {
@@ -44,6 +46,18 @@ export default function UsersManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchCompaniesList = async () => {
+    try {
+      const res = await fetch("/api/companies");
+      const data = await res.json();
+      const list = data.companies || [];
+      setCompanies(list);
+      return list;
+    } catch {
+      return [];
+    }
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -57,13 +71,9 @@ export default function UsersManagementPage() {
       setUsers(usersData.users || []);
       setCurrentUser(userData.user);
 
-      if (userData.user?.role === "SUPER_ADMIN") {
-        const compRes = await fetch("/api/companies");
-        const compData = await compRes.json();
-        setCompanies(compData.companies || []);
-        if (compData.companies?.length > 0) {
-          setCompanyId(compData.companies[0].id);
-        }
+      const compList = await fetchCompaniesList();
+      if (compList.length > 0 && !companyId) {
+        setCompanyId(compList[0].id);
       }
     } catch (e) {
       console.error(e);
@@ -76,7 +86,7 @@ export default function UsersManagementPage() {
     fetchUsers();
   }, []);
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     setEditingUser(null);
     setName("");
     setEmail("");
@@ -84,22 +94,30 @@ export default function UsersManagementPage() {
     setPhone("");
     setDepartment("");
     setRole("USER");
-    if (companies.length > 0) setCompanyId(companies[0].id);
     setError(null);
+
+    // Refresh companies on every modal open
+    const compList = await fetchCompaniesList();
+    if (compList.length > 0) {
+      setCompanyId(compList[0].id);
+    }
+
     setIsModalOpen(true);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const openEditModal = (targetUser: any) => {
+  const openEditModal = async (targetUser: any) => {
     setEditingUser(targetUser);
     setName(targetUser.name);
     setEmail(targetUser.email);
-    setPassword(""); // Leave blank if no change
+    setPassword("");
     setPhone(targetUser.phone || "");
     setDepartment(targetUser.department || "");
     setRole(targetUser.role);
     setCompanyId(targetUser.companyId || "");
     setError(null);
+
+    await fetchCompaniesList();
     setIsModalOpen(true);
   };
 
@@ -117,6 +135,15 @@ export default function UsersManagementPage() {
       return;
     }
 
+    const isSuper = currentUser?.role === "SUPER_ADMIN";
+    const finalRole = isSuper ? role : "USER";
+    const finalCompId = isSuper ? (finalRole !== "SUPER_ADMIN" ? companyId : undefined) : currentUser?.companyId;
+
+    if (isSuper && finalRole !== "SUPER_ADMIN" && !finalCompId) {
+      setError("Lütfen personelin bağlı olduğu kurumu seçin.");
+      return;
+    }
+
     setSaving(true);
     try {
       const url = editingUser ? `/api/users/${editingUser.id}` : "/api/users";
@@ -131,8 +158,8 @@ export default function UsersManagementPage() {
           password: password.trim() || undefined,
           phone: phone.trim(),
           department: department.trim(),
-          role: currentUser?.role === "SUPER_ADMIN" ? role : "USER",
-          companyId: currentUser?.role === "SUPER_ADMIN" ? companyId : undefined,
+          role: finalRole,
+          companyId: finalCompId,
         }),
       });
 
@@ -195,7 +222,7 @@ export default function UsersManagementPage() {
 
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-600/20 transition-all active:scale-[0.98]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-600/20 transition-all active:scale-[0.98] cursor-pointer"
         >
           <PlusCircle size={16} />
           <span>Yeni Personel Ekle</span>
@@ -329,7 +356,7 @@ export default function UsersManagementPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           onClick={() => openEditModal(u)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                           title="Düzenle / Şifre Değiştir"
                         >
                           <Edit2 size={15} />
@@ -354,7 +381,7 @@ export default function UsersManagementPage() {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -367,23 +394,58 @@ export default function UsersManagementPage() {
             )}
 
             <form onSubmit={handleSaveUser} className="space-y-3.5 mt-4">
-              {/* Company Selector (if Super Admin) */}
+              {/* Role Selection (Super Admin only) */}
               {isSuperAdmin && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Bağlı Olduğu Kurum / Firma *
+                    Kullanıcı Yetki Rolü *
                   </label>
                   <select
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                   >
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.code})
-                      </option>
-                    ))}
+                    <option value="USER">👤 Personel (Yalnızca kendi taleplerini açar ve görür)</option>
+                    <option value="COMPANY_ADMIN">🏢 Firma Yöneticisi (Kurumundaki tüm talepleri ve personelleri görür)</option>
+                    <option value="SUPER_ADMIN">👑 Süper Admin (Tüm sistemi yöneten Bilgi İşlem)</option>
                   </select>
+                </div>
+              )}
+
+              {/* Company Selector */}
+              {isSuperAdmin && role !== "SUPER_ADMIN" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Bağlı Olduğu Kurum / Firma *
+                    </label>
+                    <Link
+                      href="/companies"
+                      target="_blank"
+                      className="text-[11px] text-blue-600 hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Yeni Kurum Aç</span>
+                      <ExternalLink size={10} />
+                    </Link>
+                  </div>
+
+                  {companies.length === 0 ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                      ⚠️ Henüz kayıtlı kurum yok. Lütfen önce <strong>Kurumlar / Firmalar</strong> sekmesinden bir müşteri firma ekleyin.
+                    </div>
+                  ) : (
+                    <select
+                      value={companyId}
+                      onChange={(e) => setCompanyId(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    >
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
@@ -396,7 +458,7 @@ export default function UsersManagementPage() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Örn: Ayşe Kaya"
+                  placeholder="Örn: Ahmet Yılmaz"
                   className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 />
               </div>
@@ -457,36 +519,18 @@ export default function UsersManagementPage() {
                 </div>
               </div>
 
-              {/* Role Selection (Super Admin only) */}
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Kullanıcı Yetkisi
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                  >
-                    <option value="USER">Personel (Sadece kendi taleplerini açar ve görür)</option>
-                    <option value="COMPANY_ADMIN">Firma Yöneticisi (Şirketinin tüm taleplerini ve personellerini görür)</option>
-                    <option value="SUPER_ADMIN">Süper Admin (Bilgi İşlem Yetkilisi)</option>
-                  </select>
-                </div>
-              )}
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-600/20 flex items-center gap-1.5"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-600/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {saving ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
