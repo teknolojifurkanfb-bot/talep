@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { sendEmail, generateCommentNotificationEmail } from "@/lib/mail";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,7 +24,11 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
-      include: { user: true },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        company: { select: { id: true, name: true } },
+      },
     });
 
     if (!ticket) {
@@ -78,6 +83,61 @@ export async function POST(request: Request, { params }: RouteParams) {
       where: { id },
       data: { updatedAt: new Date() },
     });
+
+    // Send email notification for the new comment
+    if (!actualIsInternal) {
+      if (user.role === "SUPER_ADMIN") {
+        // IT Specialist replied -> Notify the ticket creator (User)
+        if (ticket.user?.email && ticket.user.id !== user.id) {
+          const emailHtml = generateCommentNotificationEmail({
+            ticketNumber: ticket.ticketNumber,
+            title: ticket.title,
+            authorName: user.name,
+            authorRole: user.role,
+            commentContent: comment.content,
+            recipientName: ticket.user.name,
+          });
+
+          sendEmail({
+            to: ticket.user.email,
+            subject: `[Yeni Yanıt #${ticket.ticketNumber}] ${ticket.title}`,
+            html: emailHtml,
+          }).catch((e) => console.error("Comment email to user error:", e));
+        }
+      } else {
+        // User replied -> Notify IT Admins & Assigned Specialist
+        prisma.user
+          .findMany({
+            where: { role: "SUPER_ADMIN", isActive: true },
+            select: { email: true, name: true },
+          })
+          .then((admins) => {
+            const recipientEmails = new Set<string>();
+            admins.forEach((a) => recipientEmails.add(a.email));
+            if (ticket.assignedTo?.email) {
+              recipientEmails.add(ticket.assignedTo.email);
+            }
+
+            for (const adminEmail of recipientEmails) {
+              const emailHtml = generateCommentNotificationEmail({
+                ticketNumber: ticket.ticketNumber,
+                title: ticket.title,
+                authorName: user.name,
+                authorRole: user.role,
+                commentContent: comment.content,
+                recipientName: "Teknik Ekip",
+              });
+
+              sendEmail({
+                to: adminEmail,
+                subject: `[Kullanıcı Yanıtı #${ticket.ticketNumber}] ${ticket.title}`,
+                html: emailHtml,
+              });
+            }
+          })
+          .catch((e) => console.error("Comment email to admins error:", e));
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { sendEmail, generateTicketCreatedEmail } from "@/lib/mail";
+import {
+  sendEmail,
+  generateTicketCreatedAdminEmail,
+  generateTicketConfirmationEmail,
+} from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -175,31 +179,48 @@ export async function POST(request: Request) {
       },
     });
 
-    // Notify IT Specialist / Admin via Email (fire and forget for speed)
+    // 1. Notify IT Specialist / Admin via Email (fire and forget for speed)
     prisma.user
       .findMany({
         where: { role: "SUPER_ADMIN", isActive: true },
         select: { email: true },
       })
       .then((itAdmins) => {
-        const emailHtml = generateTicketCreatedEmail({
+        const adminEmailHtml = generateTicketCreatedAdminEmail({
           ticketNumber: newTicket.ticketNumber,
           title: newTicket.title,
+          description: newTicket.description,
           userName: user.name,
           companyName: newTicket.company.name,
           priority: newTicket.priority,
           category: newTicket.category,
+          contactPhone: newTicket.contactPhone,
         });
 
         for (const admin of itAdmins) {
           sendEmail({
             to: admin.email,
             subject: `[Yeni Destek Talebi #${newTicket.ticketNumber}] ${newTicket.title}`,
-            html: emailHtml,
+            html: adminEmailHtml,
           });
         }
       })
-      .catch((e) => console.error("Email notification async error:", e));
+      .catch((e) => console.error("Admin notification async error:", e));
+
+    // 2. Notify Ticket Creator (User confirmation email)
+    if (user.email) {
+      const userEmailHtml = generateTicketConfirmationEmail({
+        ticketNumber: newTicket.ticketNumber,
+        title: newTicket.title,
+        userName: user.name,
+      });
+
+      sendEmail({
+        to: user.email,
+        subject: `[Talebiniz Alındı #${newTicket.ticketNumber}] ${newTicket.title}`,
+        html: userEmailHtml,
+      }).catch((e) => console.error("User confirmation async error:", e));
+    }
 
     return NextResponse.json({
       success: true,

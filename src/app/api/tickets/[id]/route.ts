@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { sendEmail, generateTicketStatusUpdatedEmail } from "@/lib/mail";
+import {
+  sendEmail,
+  generateTicketStatusUpdatedEmail,
+  generateTicketAssignedEmail,
+} from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -139,12 +143,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const emailHtml = generateTicketStatusUpdatedEmail({
           ticketNumber: existingTicket.ticketNumber,
           title: existingTicket.title,
+          userName: existingTicket.user.name,
           oldStatus: existingTicket.status,
           newStatus: status,
         });
         sendEmail({
           to: existingTicket.user.email,
-          subject: `[Talep #${existingTicket.ticketNumber} Güncellendi] ${status}`,
+          subject: `[Talep Durumu Güncellendi #${existingTicket.ticketNumber}] ${existingTicket.title}`,
           html: emailHtml,
         }).catch((e) => console.error("Async email error:", e));
       }
@@ -171,6 +176,32 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         action: "ATAMA_YAPILDI",
         newValue: assignedToId ? "Atandı" : "Atama Kaldırıldı",
       });
+
+      // Send assignment email to the assigned specialist
+      if (assignedToId && assignedToId !== existingTicket.assignedToId) {
+        prisma.user
+          .findUnique({
+            where: { id: assignedToId },
+            select: { name: true, email: true },
+          })
+          .then((specialist) => {
+            if (specialist?.email) {
+              const assignEmailHtml = generateTicketAssignedEmail({
+                ticketNumber: existingTicket.ticketNumber,
+                title: existingTicket.title,
+                companyName: existingTicket.company.name,
+                assignedByName: user.name,
+                specialistName: specialist.name,
+              });
+              sendEmail({
+                to: specialist.email,
+                subject: `[Yeni Talep Atandı #${existingTicket.ticketNumber}] ${existingTicket.title}`,
+                html: assignEmailHtml,
+              });
+            }
+          })
+          .catch((e) => console.error("Assignment email error:", e));
+      }
     }
 
     if (contactPhone !== undefined) updateData.contactPhone = contactPhone;

@@ -9,6 +9,7 @@ import {
   PlusCircle,
   Building2,
   Users,
+  Settings as SettingsIcon,
   LifeBuoy,
   X,
   PhoneCall,
@@ -62,6 +63,12 @@ export default function Sidebar({ user, isOpen, onClose }: Props) {
       href: "/users",
       icon: Users,
       show: isSuperAdmin || isCompanyAdmin,
+    },
+    {
+      name: "Sistem & Mail Ayarları",
+      href: "/settings",
+      icon: SettingsIcon,
+      show: isSuperAdmin,
     },
   ].filter((item) => item.show);
 

@@ -140,4 +140,9 @@ model SystemSettings {
   systemName        String  @default("Novatra Destek Portalı")
   supportPhone      String?
   notificationEmail String?
+  smtpHost          String?
+  smtpPort          Int?    @default(587)
+  smtpUser          String?
+  smtpPassword      String?
+  smtpFrom          String?
 }
