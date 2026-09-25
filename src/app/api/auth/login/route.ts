@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { comparePassword, hashPassword, setSessionCookie } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -16,11 +18,32 @@ export async function POST(request: Request) {
     const cleanEmail = email.toLowerCase().trim();
     const cleanPassword = password.trim();
 
-    // Check if any Super Admin exists; if not, automatically initialize default Super Admin
-    const userCount = await prisma.user.count().catch(() => 0);
-    if (userCount === 0 && (cleanEmail === "admin@novatra.com" || cleanEmail === "admin@bilgiislem.com")) {
+    let user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        name: true,
+        role: true,
+        isActive: true,
+        phone: true,
+        department: true,
+        companyId: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    // Lazy initialization for Super Admin if missing
+    if (!user && (cleanEmail === "admin@novatra.com" || cleanEmail === "admin@bilgiislem.com")) {
       const defaultPassword = await hashPassword("admin123");
-      await prisma.user.create({
+      const created = await prisma.user.create({
         data: {
           email: cleanEmail,
           password: defaultPassword,
@@ -30,14 +53,11 @@ export async function POST(request: Request) {
           department: "Bilgi Teknolojileri",
         },
       });
+      user = {
+        ...created,
+        company: null,
+      };
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-      include: {
-        company: true,
-      },
-    });
 
     if (!user) {
       return NextResponse.json(
