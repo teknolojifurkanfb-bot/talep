@@ -45,11 +45,11 @@ export async function GET(request: Request) {
 
     if (search.trim()) {
       where.OR = [
-        { ticketNumber: { contains: search } },
-        { title: { contains: search } },
-        { description: { contains: search } },
-        { user: { name: { contains: search } } },
-        { company: { name: { contains: search } } },
+        { ticketNumber: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { company: { name: { contains: search, mode: "insensitive" } } },
       ];
     }
 
