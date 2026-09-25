@@ -6,22 +6,43 @@ interface SendMailOptions {
   subject: string;
   html: string;
   text?: string;
+  smtpConfig?: {
+    host?: string;
+    port?: number;
+    user?: string;
+    pass?: string;
+    from?: string;
+  };
+  isTest?: boolean;
 }
 
-export async function sendEmail({ to, subject, html, text }: SendMailOptions) {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  smtpConfig,
+  isTest = false,
+}: SendMailOptions) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const settings = (await prisma.systemSettings.findUnique({
       where: { id: "default" },
     }).catch(() => null)) as any;
 
-    const host = process.env.SMTP_HOST || settings?.smtpHost || "";
-    const port = parseInt(process.env.SMTP_PORT || String(settings?.smtpPort || 587));
-    const user = process.env.SMTP_USER || settings?.smtpUser || "";
-    const pass = process.env.SMTP_PASS || settings?.smtpPassword || "";
-    const from = process.env.SMTP_FROM || settings?.smtpFrom || '"Novatra Destek Portalı" <destek@novatra.com>';
+    const host = smtpConfig?.host || process.env.SMTP_HOST || settings?.smtpHost || "";
+    const port = smtpConfig?.port || parseInt(process.env.SMTP_PORT || String(settings?.smtpPort || 587));
+    const user = smtpConfig?.user || process.env.SMTP_USER || settings?.smtpUser || "";
+    const pass = smtpConfig?.pass || process.env.SMTP_PASS || settings?.smtpPassword || "";
+    const from = smtpConfig?.from || process.env.SMTP_FROM || settings?.smtpFrom || '"Novatra Destek Portalı" <destek@novatra.com>';
 
     if (!host || !user) {
+      if (isTest) {
+        return {
+          success: false,
+          error: "Lütfen önce SMTP Sunucu Adresi (Host) ve Kullanıcı Adı (User) alanlarını doldurunuz.",
+        };
+      }
       console.log(`[E-Posta Simülasyonu - SMTP Yapılandırılmamış]`);
       console.log(`Kime: ${to}`);
       console.log(`Konu: ${subject}`);
@@ -40,6 +61,9 @@ export async function sendEmail({ to, subject, html, text }: SendMailOptions) {
       tls: {
         rejectUnauthorized: false,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
     const info = await transporter.sendMail({
@@ -51,9 +75,10 @@ export async function sendEmail({ to, subject, html, text }: SendMailOptions) {
     });
 
     return { success: true, messageId: info.messageId };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[E-posta Gönderme Hatası]:", error);
-    return { success: false, error };
+    const errorMsg = error?.message || (typeof error === "string" ? error : "Bilinmeyen SMTP hatası");
+    return { success: false, error: errorMsg };
   }
 }
 

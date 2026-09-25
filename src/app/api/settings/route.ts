@@ -71,16 +71,50 @@ export async function POST(request: Request) {
             <p style="color: #64748b; font-size: 13px;">Artık talep açılışları, durum güncellemeleri ve personel yanıtları anında e-posta ile iletilecektir.</p>
           </div>
         `,
+        smtpConfig: {
+          host: smtpHost,
+          port: smtpPort ? parseInt(String(smtpPort)) : 587,
+          user: smtpUser,
+          pass: smtpPassword,
+          from: smtpFrom,
+        },
+        isTest: true,
       });
 
       if (!result.success) {
         return NextResponse.json(
-          { error: "Test e-postası gönderilemedi. Lütfen SMTP bilgilerinizi kontrol ediniz." },
+          { error: result.error || "Test e-postası gönderilemedi. Lütfen SMTP bilgilerinizi kontrol ediniz." },
           { status: 400 }
         );
       }
 
-      return NextResponse.json({ success: true, message: "Test e-postası başarıyla gönderildi!" });
+      // Also auto-save valid settings to database
+      await prisma.systemSettings.upsert({
+        where: { id: "default" },
+        update: {
+          systemName: systemName || "Novatra Destek Portalı",
+          supportPhone: supportPhone || null,
+          notificationEmail: notificationEmail || null,
+          smtpHost: smtpHost || null,
+          smtpPort: smtpPort ? parseInt(String(smtpPort)) : 587,
+          smtpUser: smtpUser || null,
+          smtpPassword: smtpPassword || null,
+          smtpFrom: smtpFrom || null,
+        },
+        create: {
+          id: "default",
+          systemName: systemName || "Novatra Destek Portalı",
+          supportPhone: supportPhone || null,
+          notificationEmail: notificationEmail || null,
+          smtpHost: smtpHost || null,
+          smtpPort: smtpPort ? parseInt(String(smtpPort)) : 587,
+          smtpUser: smtpUser || null,
+          smtpPassword: smtpPassword || null,
+          smtpFrom: smtpFrom || null,
+        },
+      });
+
+      return NextResponse.json({ success: true, message: `Test e-postası başarıyla gönderildi (${testEmailTarget}) ve ayarlar kaydedildi!` });
     }
 
     const updated = await prisma.systemSettings.upsert({
