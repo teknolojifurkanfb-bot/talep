@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -43,7 +45,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user || user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Sadece Bilgi İşlem Yetkilisi yeni firma ekleyebilir." }, { status: 403 });
     }

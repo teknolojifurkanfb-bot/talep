@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { getSession, hashPassword } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getSession();
     if (!currentUser || currentUser.role === "USER") {
       return NextResponse.json(
         { error: "Kullanıcı oluşturma yetkiniz bulunmamaktadır." },
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
 
     if (currentUser.role === "COMPANY_ADMIN") {
       finalCompanyId = currentUser.companyId;
-      finalRole = "USER"; // Company admins can only create regular users
+      finalRole = "USER";
     } else if (currentUser.role === "SUPER_ADMIN") {
       if (finalRole !== "SUPER_ADMIN" && !finalCompanyId) {
         return NextResponse.json(

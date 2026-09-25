@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { sendEmail, generateTicketStatusUpdatedEmail } from "@/lib/mail";
+
+export const dynamic = "force-dynamic";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -9,7 +11,7 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -79,7 +81,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -132,7 +134,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         newValue: status,
       });
 
-      // Send status change email to ticket creator
+      // Send status change email to ticket creator (async)
       if (existingTicket.user?.email) {
         const emailHtml = generateTicketStatusUpdatedEmail({
           ticketNumber: existingTicket.ticketNumber,
@@ -140,11 +142,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           oldStatus: existingTicket.status,
           newStatus: status,
         });
-        await sendEmail({
+        sendEmail({
           to: existingTicket.user.email,
           subject: `[Talep #${existingTicket.ticketNumber} Güncellendi] ${status}`,
           html: emailHtml,
-        });
+        }).catch((e) => console.error("Async email error:", e));
       }
     }
 
@@ -209,7 +211,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user || user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Sadece Süper Admin talep silebilir." }, { status: 403 });
     }

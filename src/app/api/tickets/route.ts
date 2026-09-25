@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { sendEmail, generateTicketCreatedEmail } from "@/lib/mail";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -84,7 +86,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
     }
@@ -173,28 +175,31 @@ export async function POST(request: Request) {
       },
     });
 
-    // Notify IT Specialist / Admin via Email
-    const itAdmins = await prisma.user.findMany({
-      where: { role: "SUPER_ADMIN", isActive: true },
-      select: { email: true },
-    });
+    // Notify IT Specialist / Admin via Email (fire and forget for speed)
+    prisma.user
+      .findMany({
+        where: { role: "SUPER_ADMIN", isActive: true },
+        select: { email: true },
+      })
+      .then((itAdmins) => {
+        const emailHtml = generateTicketCreatedEmail({
+          ticketNumber: newTicket.ticketNumber,
+          title: newTicket.title,
+          userName: user.name,
+          companyName: newTicket.company.name,
+          priority: newTicket.priority,
+          category: newTicket.category,
+        });
 
-    const emailHtml = generateTicketCreatedEmail({
-      ticketNumber: newTicket.ticketNumber,
-      title: newTicket.title,
-      userName: user.name,
-      companyName: newTicket.company.name,
-      priority: newTicket.priority,
-      category: newTicket.category,
-    });
-
-    for (const admin of itAdmins) {
-      await sendEmail({
-        to: admin.email,
-        subject: `[Yeni Destek Talebi #${newTicket.ticketNumber}] ${newTicket.title}`,
-        html: emailHtml,
-      });
-    }
+        for (const admin of itAdmins) {
+          sendEmail({
+            to: admin.email,
+            subject: `[Yeni Destek Talebi #${newTicket.ticketNumber}] ${newTicket.title}`,
+            html: emailHtml,
+          });
+        }
+      })
+      .catch((e) => console.error("Email notification async error:", e));
 
     return NextResponse.json({
       success: true,
